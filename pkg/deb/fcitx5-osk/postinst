@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+if [ -d /run/systemd/system ]; then
+    systemctl daemon-reload || true
+    # Restart the key helper on upgrade if the user enabled it
+    if [ "$1" = configure ] && systemctl is-active --quiet fcitx5-osk-key-helper.service; then
+        systemctl restart fcitx5-osk-key-helper.service || true
+    fi
+fi

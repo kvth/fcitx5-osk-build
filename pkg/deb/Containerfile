@@ -1,0 +1,38 @@
+# Builds the fcitx5-osk .deb packages for Ubuntu/Kubuntu. Used by build-deb.sh.
+ARG UBUNTU_VERSION=26.04
+FROM docker.io/library/ubuntu:${UBUNTU_VERSION} AS build
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential ca-certificates cmake curl dpkg-dev pkg-config \
+        libssl-dev libwayland-dev libxkbcommon-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# The distro rustc can lag behind what the dependencies need, so use rustup
+ARG RUST_TOOLCHAIN=stable
+ENV RUSTUP_HOME=/usr/local/rustup CARGO_HOME=/usr/local/cargo PATH=/usr/local/cargo/bin:$PATH
+RUN curl -sSf https://sh.rustup.rs \
+    | sh -s -- -y --no-modify-path --profile minimal --default-toolchain "$RUST_TOOLCHAIN"
+
+WORKDIR /src
+
+COPY . .
+
+# The crate registry and the cmake build dir (holding cargo's target dir) live
+# in cache mounts, so rebuilds are incremental. Everything that needs the build
+# dir happens in this one step.
+ARG DEB_VERSION
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/build \
+    cmake \
+        -D CMAKE_INSTALL_PREFIX=/usr \
+        -D CMAKE_INSTALL_LIBDIR=lib \
+        -D DBUS_CONFIG_PARENT_DIR=/usr/share \
+        -B /build -S /src \
+    && cmake --build /build \
+    && DEB_VERSION="$DEB_VERSION" pkg/deb/package.sh /build /dist
+
+# Export stage: only the .deb files, written to dist/ by build-deb.sh (--output)
+FROM scratch AS out
+COPY --from=build /dist /
