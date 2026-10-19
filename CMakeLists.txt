@@ -13,6 +13,12 @@ set(INSTALL_DATA_DIR "${CMAKE_INSTALL_FULL_DATADIR}")
 # Where to install dbus config
 set(DBUS_CONFIG_PARENT_DIR "/etc" CACHE PATH "The parent directory of dbus config directory")
 
+# Font family used for icons unless the user config sets `default_nerd_font`
+set(DEFAULT_NERD_FONT "" CACHE STRING "Default nerd font family (empty: NotoSerif NF)")
+
+# A directory holding nerd font *.ttf files and their LICENSE to ship with fcitx5-osk
+set(BUNDLED_NERD_FONT_DIR "" CACHE PATH "Directory of nerd font files to install (empty: none)")
+
 # Where to run cargo
 set(CARGO_TARGET_DIR ${CMAKE_BINARY_DIR}/cargo_target)
 
@@ -20,8 +26,10 @@ add_subdirectory(fcitx5-osk-kwin-launcher)
 
 # Tell CMake to build Rust binary
 add_custom_target(build_rust ALL
-    COMMAND cargo build --release --target-dir ${CARGO_TARGET_DIR}
+    COMMAND ${CMAKE_COMMAND} -E env "FCITX5_OSK_DEFAULT_NERD_FONT=${DEFAULT_NERD_FONT}"
+        cargo build --release --target-dir ${CARGO_TARGET_DIR}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    VERBATIM
 )
 
 # Rust binary full path
@@ -103,6 +111,24 @@ install(FILES
     DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services
     COMPONENT Fcitx5Osk
 )
+
+if(BUNDLED_NERD_FONT_DIR)
+    file(GLOB BUNDLED_NERD_FONTS "${BUNDLED_NERD_FONT_DIR}/*.ttf")
+    if(NOT BUNDLED_NERD_FONTS)
+        message(FATAL_ERROR "No *.ttf files in BUNDLED_NERD_FONT_DIR: ${BUNDLED_NERD_FONT_DIR}")
+    endif()
+    install(FILES
+            ${BUNDLED_NERD_FONTS}
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/fonts/truetype/fcitx5-osk
+        COMPONENT Fcitx5Osk
+    )
+    install(FILES
+            ${BUNDLED_NERD_FONT_DIR}/LICENSE
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/fcitx5-osk
+        RENAME nerd-fonts-LICENSE
+        COMPONENT Fcitx5Osk
+    )
+endif()
 
 # Install fcitx5-osk's lib files
 install(FILES

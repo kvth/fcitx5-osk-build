@@ -1,9 +1,30 @@
 #!/bin/sh
+# Enable and start the key helper like dh_installsystemd does: enabled on first
+# install (uppercase/modifiers need it), but a later `systemctl disable` by the
+# admin is remembered across upgrades.
 set -e
-if [ -d /run/systemd/system ]; then
-    systemctl daemon-reload || true
-    # Restart the key helper on upgrade if the user enabled it
-    if [ "$1" = configure ] && systemctl is-active --quiet fcitx5-osk-key-helper.service; then
-        systemctl restart fcitx5-osk-key-helper.service || true
+unit=fcitx5-osk-key-helper.service
+
+if [ "$1" = configure ] || [ "$1" = abort-upgrade ] || [ "$1" = abort-deconfigure ] || [ "$1" = abort-remove ]; then
+    # Only removes masks created by deb-systemd-helper on package removal
+    deb-systemd-helper unmask "$unit" >/dev/null || true
+
+    # was-enabled defaults to true, so new installs (and upgrades from builds
+    # that never enabled it) run enable
+    if deb-systemd-helper --quiet was-enabled "$unit"; then
+        deb-systemd-helper enable "$unit" >/dev/null || true
+    else
+        deb-systemd-helper update-state "$unit" >/dev/null || true
+    fi
+
+    if [ -z "${DPKG_ROOT:-}" ] && [ -d /run/systemd/system ]; then
+        systemctl --system daemon-reload >/dev/null || true
+        if [ -n "$2" ]; then
+            action=restart
+        else
+            action=start
+        fi
+        # deb-systemd-invoke skips units the admin has disabled
+        deb-systemd-invoke "$action" "$unit" >/dev/null || true
     fi
 fi

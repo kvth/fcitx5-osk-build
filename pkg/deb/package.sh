@@ -54,11 +54,15 @@ CONTROL
 }
 
 # The GUI dlopens its Wayland/EGL/xkbcommon libraries, so dpkg-shlibdeps misses them
-make_deb Fcitx5Osk fcitx5-osk "fcitx5, dbus, libwayland-client0, libwayland-egl1, libegl1, libxkbcommon0" \
+# init-system-helpers provides deb-systemd-helper for the maintainer scripts
+make_deb Fcitx5Osk fcitx5-osk "fcitx5, dbus, libwayland-client0, libwayland-egl1, libegl1, libxkbcommon0, init-system-helpers" \
     "On-screen keyboard for Fcitx5, especially on KDE Plasma Wayland
  Includes fcitx5-osk-key-helper, a system service that emits modifier key
- events through evdev. Enable it with:
- sudo systemctl enable --now fcitx5-osk-key-helper"
+ events through evdev, so Shift/Ctrl/Alt work on Wayland. It is enabled on
+ install; turn it off with:
+ sudo systemctl disable --now fcitx5-osk-key-helper
+ .
+ Bundles the Symbols Nerd Font for the key icons, unless built without it."
 
 make_deb Fcitx5OskKwinLauncher fcitx5-osk-kwin-launcher "fcitx5-osk (= $DEB_VERSION), kwin-wayland" \
     "KWin virtual keyboard launcher for fcitx5-osk

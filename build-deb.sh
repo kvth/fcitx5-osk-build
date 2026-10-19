@@ -3,6 +3,11 @@
 # dependencies are needed on the host. The packages are written to dist/.
 #   UBUNTU_VERSION  Ubuntu release to build against (default 26.04)
 #   DEB_VERSION     package version (default: Cargo.toml version + git commit)
+#   NERD_FONTS_VERSION  Nerd Fonts release whose Symbols Nerd Font is bundled
+#                       for the key icons (default: pinned in Containerfile;
+#                       empty to bundle none)
+#   NERD_FONTS_SHA256   sha256 of NerdFontsSymbolsOnly.tar.xz, needed when
+#                       NERD_FONTS_VERSION is changed
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -16,11 +21,20 @@ if [[ -z "${DEB_VERSION:-}" ]]; then
     DEB_VERSION="$version-1~ubuntu$ubuntu_version"
 fi
 
+font_args=()
+if [[ -v NERD_FONTS_VERSION ]]; then
+    font_args+=(--build-arg NERD_FONTS_VERSION="$NERD_FONTS_VERSION")
+fi
+if [[ -v NERD_FONTS_SHA256 ]]; then
+    font_args+=(--build-arg NERD_FONTS_SHA256="$NERD_FONTS_SHA256")
+fi
+
 rm -rf dist
 podman build \
     --file pkg/deb/Containerfile \
     --build-arg UBUNTU_VERSION="$ubuntu_version" \
     --build-arg DEB_VERSION="$DEB_VERSION" \
+    "${font_args[@]}" \
     --output type=local,dest=dist \
     .
 

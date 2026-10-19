@@ -6,7 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential ca-certificates cmake curl dpkg-dev pkg-config \
-        libssl-dev libwayland-dev libxkbcommon-dev \
+        libssl-dev libwayland-dev libxkbcommon-dev xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # The distro rustc can lag behind what the dependencies need, so use rustup
@@ -14,6 +14,20 @@ ARG RUST_TOOLCHAIN=stable
 ENV RUSTUP_HOME=/usr/local/rustup CARGO_HOME=/usr/local/cargo PATH=/usr/local/cargo/bin:$PATH
 RUN curl -sSf https://sh.rustup.rs \
     | sh -s -- -y --no-modify-path --profile minimal --default-toolchain "$RUST_TOOLCHAIN"
+
+# Ubuntu has no package with the Material Design glyphs at the codepoints Nerd
+# Fonts use, so bundle the Symbols Nerd Font. Set NERD_FONTS_VERSION empty to
+# skip it (users then need a nerd font, NotoSerif NF by default).
+ARG NERD_FONTS_VERSION=3.5.1
+ARG NERD_FONTS_SHA256=01172f37db8543edb102e5cb5c64101c9f4686630804d49b419aa07b23a69996
+RUN mkdir /nerd-font \
+    && if [ -n "$NERD_FONTS_VERSION" ]; then \
+        curl -sSfL -o /tmp/nerd-font.tar.xz \
+            "https://github.com/ryanoasis/nerd-fonts/releases/download/v$NERD_FONTS_VERSION/NerdFontsSymbolsOnly.tar.xz" \
+        && echo "$NERD_FONTS_SHA256  /tmp/nerd-font.tar.xz" | sha256sum -c - \
+        && tar -xJf /tmp/nerd-font.tar.xz -C /nerd-font SymbolsNerdFont-Regular.ttf LICENSE \
+        && rm /tmp/nerd-font.tar.xz; \
+    fi
 
 WORKDIR /src
 
@@ -25,10 +39,16 @@ COPY . .
 ARG DEB_VERSION
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/build \
-    cmake \
+    if [ -n "$NERD_FONTS_VERSION" ]; then \
+        set -- -D BUNDLED_NERD_FONT_DIR=/nerd-font -D "DEFAULT_NERD_FONT=Symbols Nerd Font"; \
+    else \
+        set -- -D BUNDLED_NERD_FONT_DIR= -D DEFAULT_NERD_FONT=; \
+    fi \
+    && cmake \
         -D CMAKE_INSTALL_PREFIX=/usr \
         -D CMAKE_INSTALL_LIBDIR=lib \
         -D DBUS_CONFIG_PARENT_DIR=/usr/share \
+        "$@" \
         -B /build -S /src \
     && cmake --build /build \
     && DEB_VERSION="$DEB_VERSION" pkg/deb/package.sh /build /dist

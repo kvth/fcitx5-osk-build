@@ -76,6 +76,11 @@ cmake -B build -S .
 cmake --build build
 ```
 
+The key icons need a nerd font, `NotoSerif NF` by default. Users can pick another one with `default_nerd_font` in `config.toml`. Packagers can change that default and ship a font with these `cmake` options:
+
+* `-D DEFAULT_NERD_FONT="Symbols Nerd Font"`: the font family used when the config doesn't set `default_nerd_font`.
+* `-D BUNDLED_NERD_FONT_DIR=/path/to/dir`: install the `*.ttf` files in this directory (and its `LICENSE`) with fcitx5-osk.
+
 * install
 
 ```bash

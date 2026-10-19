@@ -6,7 +6,14 @@ use std::{
 use iced::Font;
 
 static FONTS: OnceLock<Mutex<HashMap<String, &'static str>>> = OnceLock::new();
-static DEFAULT_NERD_FONT: Mutex<Font> = Mutex::new(Font::with_name("NotoSerif NF"));
+/// Used when the config doesn't set `default_nerd_font`. Packagers can change it
+/// at build time with the `FCITX5_OSK_DEFAULT_NERD_FONT` env var.
+const BUILTIN_NERD_FONT: &str = match option_env!("FCITX5_OSK_DEFAULT_NERD_FONT") {
+    Some(name) if !name.is_empty() => name,
+    _ => "NotoSerif NF",
+};
+
+static DEFAULT_NERD_FONT: Mutex<Font> = Mutex::new(Font::with_name(BUILTIN_NERD_FONT));
 
 pub static DEFAULT_NERD_FONT_ID: &str = "fcitx5 osk nerd";
 
